@@ -13,7 +13,7 @@ async function main() {
   //   // transport: new sseModule.SSEClientTransport(new URL('http://localhost:3000/api/mcp/sse')),
   // });
 
-  const urlString = 'http://localhost:3000/';
+  const urlString = 'http://localhost:3000/api/mcp/';
   console.log(`Using URL: ${urlString}`);
 
   const client = new clientModule.Client({

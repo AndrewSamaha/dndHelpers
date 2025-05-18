@@ -11,6 +11,7 @@ const diceSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log(`POST [Dice API] Body: ${JSON.stringify(body)}`);
     const parseResult = diceSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
+  console.log(`GET [Dice API] Search params: ${JSON.stringify(searchParams)}`);
   const numRolls = Number(searchParams.get('numRolls'));
   const numSides = Number(searchParams.get('numSides'));
   const reason = searchParams.get('reason') || undefined;
