@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { rollDice } from '@/features/dice/dice';
+import { rollDice } from '@/tools/dice/dice';
 import { z } from 'zod';
 
 const diceSchema = z.object({
@@ -13,7 +13,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parseResult = diceSchema.safeParse(body);
     if (!parseResult.success) {
-      return NextResponse.json({ error: 'Invalid input', details: parseResult.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.flatten() },
+        { status: 400 },
+      );
     }
     const { numRolls, numSides, reason } = parseResult.data;
     if (typeof reason === 'string') {
@@ -22,7 +25,7 @@ export async function POST(req: NextRequest) {
     const result = rollDice(numRolls, numSides);
     return NextResponse.json({ numRolls, numSides, reason, result });
   } catch (e) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid request', cause: e }, { status: 400 });
   }
 }
 
@@ -33,7 +36,10 @@ export async function GET(req: NextRequest) {
   const reason = searchParams.get('reason') || undefined;
   const parseResult = diceSchema.safeParse({ numRolls, numSides, reason });
   if (!parseResult.success) {
-    return NextResponse.json({ error: 'Invalid input', details: parseResult.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid input', details: parseResult.error.flatten() },
+      { status: 400 },
+    );
   }
   if (typeof reason === 'string') {
     console.log(`[Dice API] Reason: ${reason}`);
