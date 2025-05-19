@@ -21,6 +21,8 @@
     "test:chat": "bash scripts/curl-chat.sh"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.56",
+    "@langchain/openai": "^0.5.10",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-slot": "^1.2.0",
     "@tanstack/react-table": "^8.21.3",

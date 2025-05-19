@@ -115,6 +115,17 @@ export async function POST(req: NextRequest) {
     console.log('AI content:', result.content);
     console.log('Tool calls:', result.tool_calls);
 
+    // Construct response message, including tool_calls if present
+    const message: any = {
+      role: 'assistant',
+      content: result.content,
+    };
+    
+    // Add tool_calls to the message if they exist
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      message.tool_calls = result.tool_calls;
+    }
+
     const response = {
       id: 'chatcmpl-langchain',
       object: 'chat.completion',
@@ -123,10 +134,7 @@ export async function POST(req: NextRequest) {
       choices: [
         {
           index: 0,
-          message: {
-            role: 'assistant',
-            content: result.content,
-          },
+          message,
           finish_reason: result.response_metadata?.finish_reason ?? 'stop',
         },
       ],
