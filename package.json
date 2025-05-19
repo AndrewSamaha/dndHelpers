@@ -18,7 +18,9 @@
     "db:migrate": "tsx src/lib/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "test:mcp": "ts-node scripts/test-mcp-client.ts",
-    "test:chat": "bash scripts/curl-chat.sh"
+    "test:chat": "bash scripts/curl-chat.sh",
+    "test:flowise": "bash scripts/curl-flowise.sh",
+    "test:notool": "bash scripts/curl-chat-notool.sh"
   },
   "dependencies": {
     "@langchain/core": "^0.3.56",

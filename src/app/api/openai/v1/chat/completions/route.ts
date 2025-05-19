@@ -119,34 +119,34 @@ export async function POST(req: NextRequest) {
 
     const model = body.model || 'gpt-4.1-mini';
     const temperature = body.temperature ?? 0.7;
-    
+
     // Check if we need to process tool responses
     let processedMessages = [...messages];
     const toolResults = []; // Store results of tool executions
-    
+
     // Check for tool calls in the most recent assistant message and tool results in the subsequent user messages
     for (let i = 0; i < messages.length - 1; i++) {
       const message = messages[i];
       const nextMessage = messages[i + 1];
-      
+
       // If this is an assistant message with tool_calls and the next is a user message with tool_call_id
       if (
-        message.role === 'assistant' && 
-        message.tool_calls && 
-        nextMessage.role === 'user' && 
+        message.role === 'assistant' &&
+        message.tool_calls &&
+        nextMessage.role === 'user' &&
         nextMessage.tool_call_id
       ) {
         // Find the matching tool call
         const matchingToolCall = message.tool_calls.find(
-          (tc: any) => tc.id === nextMessage.tool_call_id
+          (tc: any) => tc.id === nextMessage.tool_call_id,
         );
-        
+
         if (matchingToolCall) {
           // Store the result for later processing
           toolResults.push({
             toolCallId: nextMessage.tool_call_id,
             toolName: matchingToolCall.name,
-            result: nextMessage.content
+            result: nextMessage.content,
           });
         }
       }
@@ -174,30 +174,31 @@ export async function POST(req: NextRequest) {
       // Process each tool call
       for (const toolCall of result.tool_calls) {
         // Find the relevant tool from our wrapped tools
-        const tool = appTools.find(t => t.name === toolCall.name);
-        
+        const tool = appTools.find((t) => t.name === toolCall.name);
+
         if (tool) {
           try {
             // Ensure the arguments have the correct type
             const args = toolCall.args as { numRolls: number; numSides: number; reason?: string };
-            
+
             // Execute the tool with the provided arguments
             const toolResult = await tool.run(args);
-            
+
             // Add the result to our tracking array
             toolResults.push({
               toolCallId: toolCall.id,
               toolName: toolCall.name,
-              result: toolResult
+              result: toolResult,
             });
-            
+
             console.log(`Tool ${toolCall.name} executed with result:`, toolResult);
-          } catch (error: any) { // Type error as any to access message property
+          } catch (error: any) {
+            // Type error as any to access message property
             console.error(`Error executing tool ${toolCall.name}:`, error);
             toolResults.push({
               toolCallId: toolCall.id,
               toolName: toolCall.name,
-              result: { error: `Failed to execute tool: ${error.message || 'Unknown error'}` }
+              result: { error: `Failed to execute tool: ${error.message || 'Unknown error'}` },
             });
           }
         }
@@ -209,13 +210,62 @@ export async function POST(req: NextRequest) {
       role: 'assistant',
       content: result.content,
     };
-    
+
     // Add tool_calls to the message if they exist
     if (result.tool_calls && result.tool_calls.length > 0) {
       message.tool_calls = result.tool_calls;
     }
 
-    // Create the response object with our interface type
+    // Check if this request is coming from Flowise by looking for various identifiers
+    // We can look at headers, parameters, or request structure
+    const forceFlowiseFormat = req.nextUrl.searchParams.get('format') === 'flowise';
+
+    // Explicit checks for Flowise identifiers
+    const hasFlowiseHeaders =
+      req.headers.get('x-client-type') === 'flowise' || req.headers.has('x-flowise-signature');
+
+    // Check query params
+    const hasFlowiseParams = req.nextUrl.searchParams.get('client') === 'flowise';
+
+    // Check for specific structure in the request that might indicate Flowise
+    // e.g., Flowise may include specific fields like 'sessionId' or 'chatId'
+    const hasFlowiseStructure =
+      body.chatId !== undefined || body.sessionId !== undefined || body.memoryType !== undefined;
+
+    const isFlowiseRequest =
+      forceFlowiseFormat || hasFlowiseHeaders || hasFlowiseParams || hasFlowiseStructure;
+
+    console.log(
+      `isFlowiseRequest: ${isFlowiseRequest} (force: ${forceFlowiseFormat}, headers: ${hasFlowiseHeaders}, params: ${hasFlowiseParams}, structure: ${hasFlowiseStructure})`,
+    );
+
+    // Determine content to use for response
+    let responseContent = result.content || '';
+
+    // Extract tool results for response formatting
+    let toolResultTexts: string[] = [];
+    if (toolResults.length > 0) {
+      toolResultTexts = toolResults.map((tr) => {
+        if (typeof tr.result === 'string') {
+          return tr.result;
+        } else if (tr.result?.content?.[0]?.text) {
+          return tr.result.content[0].text;
+        } else {
+          return JSON.stringify(tr.result);
+        }
+      });
+
+      // If the content is empty (which is often the case with tool calls),
+      // use the tool results as the content
+      if (!responseContent) {
+        responseContent = toolResultTexts.join('\n');
+      } else {
+        // Otherwise append the tool results
+        responseContent = `${responseContent}\n\n${toolResultTexts.join('\n')}`;
+      }
+    }
+
+    // Otherwise return standard OpenAI format
     const response: ChatCompletionResponse = {
       id: 'chatcmpl-langchain',
       object: 'chat.completion',
@@ -234,12 +284,15 @@ export async function POST(req: NextRequest) {
         total_tokens: 0,
       },
     };
-    
+
     // If we have tool results, add them to the response
     if (toolResults.length > 0) {
       response.tool_results = toolResults;
+      response.choices[0].message.content = toolResults
+        .map((tr) => tr.result.content.map((c: any) => `${c.text}`).join(''))
+        .join('\n');
     }
-    
+
     return NextResponse.json(response);
   } catch (e: any) {
     console.error('[LangChain API Error]', e);
