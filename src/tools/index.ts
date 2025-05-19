@@ -1,10 +1,6 @@
 import { getDiceTool } from './dice/dice';
-
+import { getStatBlockTool } from './fillStatBlock/fillStatBlock';
 /**
  * Collection of tools available for use with LLMs
  */
-export const tools = [
-  getDiceTool,
-  // Add more tools here as they are developed
-];
-
+export const tools = [getDiceTool, getStatBlockTool];
