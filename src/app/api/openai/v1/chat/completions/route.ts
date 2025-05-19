@@ -14,6 +14,27 @@ function toLangChainMessages(messages: any[]) {
   });
 }
 
+// Define interfaces for our response types
+interface ToolResult {
+  toolCallId: string;
+  toolName: string;
+  result: any;
+}
+
+interface ChatCompletionResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    message: any;
+    finish_reason: string;
+  }>;
+  usage: any;
+  tool_results?: ToolResult[];
+}
+
 function toOpenAIMessage(message: any) {
   return {
     role: message._getType?.() === 'ai' ? 'assistant' : 'user',
@@ -82,7 +103,8 @@ export async function POST(req: NextRequest) {
         "messages": [
           { "role": "system", "content": "You are a helpful assistant." },
           { "role": "user", "content": "hi" }
-        ]
+        ],
+        "tool_choice": "auto"
       }
     */
     console.log(`post messages: ${JSON.stringify(messages)}`);
@@ -97,6 +119,38 @@ export async function POST(req: NextRequest) {
 
     const model = body.model || 'gpt-4.1-mini';
     const temperature = body.temperature ?? 0.7;
+    
+    // Check if we need to process tool responses
+    let processedMessages = [...messages];
+    const toolResults = []; // Store results of tool executions
+    
+    // Check for tool calls in the most recent assistant message and tool results in the subsequent user messages
+    for (let i = 0; i < messages.length - 1; i++) {
+      const message = messages[i];
+      const nextMessage = messages[i + 1];
+      
+      // If this is an assistant message with tool_calls and the next is a user message with tool_call_id
+      if (
+        message.role === 'assistant' && 
+        message.tool_calls && 
+        nextMessage.role === 'user' && 
+        nextMessage.tool_call_id
+      ) {
+        // Find the matching tool call
+        const matchingToolCall = message.tool_calls.find(
+          (tc: any) => tc.id === nextMessage.tool_call_id
+        );
+        
+        if (matchingToolCall) {
+          // Store the result for later processing
+          toolResults.push({
+            toolCallId: nextMessage.tool_call_id,
+            toolName: matchingToolCall.name,
+            result: nextMessage.content
+          });
+        }
+      }
+    }
 
     // Initialize Chat model and bind tools
     const chatModel = new ChatOpenAI({
@@ -115,6 +169,41 @@ export async function POST(req: NextRequest) {
     console.log('AI content:', result.content);
     console.log('Tool calls:', result.tool_calls);
 
+    // Check if we have tool calls to execute
+    if (result.tool_calls && result.tool_calls.length > 0 && body.tool_choice !== 'none') {
+      // Process each tool call
+      for (const toolCall of result.tool_calls) {
+        // Find the relevant tool from our wrapped tools
+        const tool = appTools.find(t => t.name === toolCall.name);
+        
+        if (tool) {
+          try {
+            // Ensure the arguments have the correct type
+            const args = toolCall.args as { numRolls: number; numSides: number; reason?: string };
+            
+            // Execute the tool with the provided arguments
+            const toolResult = await tool.run(args);
+            
+            // Add the result to our tracking array
+            toolResults.push({
+              toolCallId: toolCall.id,
+              toolName: toolCall.name,
+              result: toolResult
+            });
+            
+            console.log(`Tool ${toolCall.name} executed with result:`, toolResult);
+          } catch (error: any) { // Type error as any to access message property
+            console.error(`Error executing tool ${toolCall.name}:`, error);
+            toolResults.push({
+              toolCallId: toolCall.id,
+              toolName: toolCall.name,
+              result: { error: `Failed to execute tool: ${error.message || 'Unknown error'}` }
+            });
+          }
+        }
+      }
+    }
+
     // Construct response message, including tool_calls if present
     const message: any = {
       role: 'assistant',
@@ -126,7 +215,8 @@ export async function POST(req: NextRequest) {
       message.tool_calls = result.tool_calls;
     }
 
-    const response = {
+    // Create the response object with our interface type
+    const response: ChatCompletionResponse = {
       id: 'chatcmpl-langchain',
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
@@ -144,6 +234,12 @@ export async function POST(req: NextRequest) {
         total_tokens: 0,
       },
     };
+    
+    // If we have tool results, add them to the response
+    if (toolResults.length > 0) {
+      response.tool_results = toolResults;
+    }
+    
     return NextResponse.json(response);
   } catch (e: any) {
     console.error('[LangChain API Error]', e);
