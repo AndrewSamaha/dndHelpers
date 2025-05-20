@@ -50,6 +50,10 @@ export function rollStat(): number {
     .reduce((a, b) => a + b, 0);
 }
 
+export function randomRace(): CharacterRace {
+  return CHARACTER_RACES[Math.floor(Math.random() * CHARACTER_RACES.length)];
+}
+
 /**
  * Simulates rolling dice.
  * @param numRolls Number of dice to roll
@@ -61,7 +65,7 @@ export function fillStatBlock(input: StatBlockInput): StatBlockOutput {
     level: input.level,
     name: input.name || generateFantasyName(),
     characterClass: input.characterClass || 'Unknown',
-    race: input.race || 'Unknown',
+    race: input.race || randomRace(),
     intelligence: input.intelligence || rollStat(),
     wisdom: input.wisdom || rollStat(),
     charisma: input.charisma || rollStat(),
@@ -89,7 +93,7 @@ export const getStatBlockTool = {
       },
       name: {
         type: 'string',
-        description: "The character's name",
+        description: "The character's name (different from characterClass or race)",
       },
       characterClass: {
         type: 'string',
