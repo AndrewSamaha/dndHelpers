@@ -1,10 +1,21 @@
 import { rollDice } from '@/tools/dice/dice';
+import { generateFantasyName } from '@/tools/name/name';
+import {
+  CharacterClass,
+  CharacterRace,
+  CHARACTER_CLASSES,
+  CHARACTER_RACES,
+} from '@/common/dndTypes';
+
 /**
  * Interface for dice roll arguments
  */
 
 export interface StatBlockInput {
   level: number;
+  name: string | undefined;
+  characterClass: CharacterClass | undefined;
+  race: CharacterRace | undefined;
   intelligence: number | undefined;
   wisdom: number | undefined;
   charisma: number | undefined;
@@ -18,6 +29,9 @@ export interface StatBlockInput {
 
 export interface StatBlockOutput {
   level: number;
+  name: string;
+  characterClass: CharacterClass;
+  race: CharacterRace;
   intelligence: number;
   wisdom: number;
   charisma: number;
@@ -45,6 +59,9 @@ export function rollStat(): number {
 export function fillStatBlock(input: StatBlockInput): StatBlockOutput {
   return {
     level: input.level,
+    name: input.name || generateFantasyName(),
+    characterClass: input.characterClass || 'Unknown',
+    race: input.race || 'Unknown',
     intelligence: input.intelligence || rollStat(),
     wisdom: input.wisdom || rollStat(),
     charisma: input.charisma || rollStat(),
@@ -62,13 +79,27 @@ export function fillStatBlock(input: StatBlockInput): StatBlockOutput {
  */
 export const getStatBlockTool = {
   name: 'getStatBlock',
-  description: 'Fills out a character stat block',
+  description: 'Fills out a character stat block. Do your best to map input to parameters.',
   parameters: {
     type: 'object',
     properties: {
       level: {
         type: 'number',
         description: "The character's level",
+      },
+      name: {
+        type: 'string',
+        description: "The character's name",
+      },
+      characterClass: {
+        type: 'string',
+        description: `The character's class. Options: ${CHARACTER_CLASSES.join(', ')}`,
+        enum: [...CHARACTER_CLASSES],
+      },
+      race: {
+        type: 'string',
+        description: `The character's race. Options: ${CHARACTER_RACES.join(', ')}`,
+        enum: [...CHARACTER_RACES],
       },
       intelligence: {
         type: 'number',
@@ -118,6 +149,9 @@ export const getStatBlockTool = {
       'ac',
       'hp',
       'maxHp',
+      'name',
+      'characterClass',
+      'race',
     ],
   },
   run: async ({
@@ -131,6 +165,9 @@ export const getStatBlockTool = {
     ac,
     hp,
     maxHp,
+    name,
+    characterClass,
+    race,
   }: StatBlockInput) => {
     const result = fillStatBlock({
       level,
@@ -143,12 +180,15 @@ export const getStatBlockTool = {
       ac,
       hp,
       maxHp,
+      name,
+      characterClass,
+      race,
     });
     return {
       content: [
         {
           type: 'text',
-          text: `Filled out character stat block: ${JSON.stringify(result)}`,
+          text: `Filled out character stat block: ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
