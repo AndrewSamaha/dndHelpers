@@ -1,5 +1,5 @@
 import { rollDice } from '@/tools/dice/dice';
-import { generateFantasyName } from '@/tools/name/name';
+import { generateFantasyName } from '@/tools/nameV2/name';
 import {
   CharacterClass,
   CharacterRace,
