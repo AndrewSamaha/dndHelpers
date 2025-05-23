@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "trigger-chatflow": "tsx scripts/trigger_chatflow/triggerChatflow.ts",
+    "test:random-stat-blocks": "tsx scripts/trigger_chatflow/randomStatBlockTester.ts",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
@@ -36,6 +38,8 @@
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.31.0",
     "drizzle-orm": "^0.43.1",
+    "langfuse": "^3.37.2",
+    "langfuse-langchain": "^3.37.2",
     "lucide-react": "^0.487.0",
     "next": "^15.3.2",
     "pg": "^8.15.6",
